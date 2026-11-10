@@ -1,7 +1,7 @@
 /*
   ==============================================================================
-    FreeTune v3.3 - Editor
-    Sleek dark design: 3D knobs, recessed tuning meter, one-octave note keyboard.
+    FreeTune - Editor con la interfaz "Gemini-Tune Pro"
+    Reemplaza al PluginEditor.h original. El motor (PluginProcessor) no se toca.
   ==============================================================================
 */
 #pragma once
@@ -9,57 +9,36 @@
 #include "PluginProcessor.h"
 
 //==============================================================================
-// Palette and type, matching the approved mockup
-namespace ftui
+// Paleta y tipografia (sacadas del diseno HTML)
+namespace gt
 {
-    const juce::Colour ink      { 0xffE6EAF0 };   // primary text
-    const juce::Colour dim      { 0xff98A2B0 };   // captions
-    const juce::Colour tickText { 0xff8A93A1 };   // meter scale numbers
-    const juce::Colour line     { 0xff323947 };   // panel dividers
-    const juce::Colour edge     { 0xff3A4250 };   // control outlines
-    const juce::Colour amber    { 0xffF5A524 };   // what FreeTune does (correction)
-    const juce::Colour ice      { 0xff6CC7E8 };   // what the singer does (input pitch)
+    const juce::Colour teal   { 0xff00f2c3 };
+    const juce::Colour purple { 0xffa855f7 };
+    const juce::Colour yellow { 0xffeab308 };
+    const juce::Colour text   { 0xffe2e8f0 };   // slate-200
+    const juce::Colour text2  { 0xffcbd5e1 };   // slate-300
+    const juce::Colour muted  { 0xff94a3b8 };   // slate-400
+    const juce::Colour faint  { 0xff64748b };   // slate-500
+    const juce::Colour line   { 0xff1e293b };   // slate-800
 
-    // Bahnschrift ships with Windows 10/11; other systems fall back to the default sans.
-    juce::Font font (float size, bool bold = false);
+    // Segoe UI y Consolas vienen con Windows; en otros sistemas cae a la fuente por defecto.
+    juce::Font font (float size, bool bold = false, bool italic = false);
+    juce::Font mono (float size, bool bold = false);
 }
 
 //==============================================================================
-class FreeTuneLookAndFeel : public juce::LookAndFeel_V4
+class GemLookAndFeel : public juce::LookAndFeel_V4
 {
 public:
-    FreeTuneLookAndFeel();
+    GemLookAndFeel();
 
     void drawRotarySlider (juce::Graphics&, int x, int y, int width, int height,
                            float sliderPos, float startAngle, float endAngle, juce::Slider&) override;
-
-    void drawComboBox (juce::Graphics&, int width, int height, bool isButtonDown,
-                       int buttonX, int buttonY, int buttonW, int buttonH, juce::ComboBox&) override;
-    void positionComboBoxText (juce::ComboBox&, juce::Label&) override;
-    juce::Font getComboBoxFont (juce::ComboBox&) override;
     juce::Font getPopupMenuFont() override;
 };
 
 //==============================================================================
-// Pill-shaped on/off button with an LED (Classic, Formant)
-class LedToggle : public juce::Button
-{
-public:
-    explicit LedToggle (const juce::String& name);
-    void paintButton (juce::Graphics&, bool isHighlighted, bool isDown) override;
-
-    // Right-click opens the host's menu (e.g. FL "Create automation clip")
-    std::function<void (const juce::MouseEvent&)> onHostMenu;
-    void mouseDown (const juce::MouseEvent&) override;
-    void mouseDrag (const juce::MouseEvent&) override;
-    void mouseUp   (const juce::MouseEvent&) override;
-
-private:
-    bool menuClick = false;
-};
-
-//==============================================================================
-// Rotary slider whose right-click opens the host's parameter menu
+// Knob rotativo: el click derecho abre el menu del host (en FL: "Create automation clip")
 class HostMenuSlider : public juce::Slider
 {
 public:
@@ -73,36 +52,60 @@ private:
 };
 
 //==============================================================================
-// Arc meter: ice needle = singer's pitch, amber arc/dot = correction and result
-class TuningMeter : public juce::Component
+// Pastilla con un puntito de color y un valor (35, 45, 30...)
+class ValuePill : public juce::Component
 {
 public:
-    void setReading (float inputCents, float outputCents, int noteMidi, bool voiced);
+    explicit ValuePill (juce::Colour dot) : dotColour (dot) {}
+    void setText (const juce::String&);
     void paint (juce::Graphics&) override;
 
 private:
-    float inCents = 0.0f, outCents = 0.0f;
-    int   noteMidi = -1;
+    juce::Colour dotColour;
+    juce::String text;
+};
+
+//==============================================================================
+// Linea de estado: "AutoKey Listen" con el punto que late + indicador de senal
+class StatusBar : public juce::Component
+{
+public:
+    void setActive (bool);
+    void tick();
+    void paint (juce::Graphics&) override;
+
+private:
+    bool  active = false;
+    float phase  = 0.0f;
+};
+
+//==============================================================================
+// Nota grande + barra de cents con aguja
+class ReadoutDisplay : public juce::Component
+{
+public:
+    void setReading (const juce::String& note, float cents, bool voiced);
+    void paint (juce::Graphics&) override;
+
+private:
+    juce::String note { "--" };
+    float cents = 0.0f;
     bool  voiced = false;
 };
 
 //==============================================================================
-// One-octave keyboard: lit keys are in the scale, click to add/remove a note
-class PianoKeys : public juce::Component
+// Las 12 notas: fila de sostenidos (circulos) y fila de naturales (pastillas)
+class NotePad : public juce::Component
 {
 public:
-    std::function<bool (int)> isOn;       // pitch class (C = 0) -> in scale?
-    std::function<void (int)> onToggle;   // a key was clicked
+    std::function<bool (int)> isOn;       // pitch class (C = 0) -> esta activa?
+    std::function<void (int)> onToggle;   // se hizo click en una nota
 
-    void setTarget (int pitchClass);
     void paint (juce::Graphics&) override;
     void mouseDown (const juce::MouseEvent&) override;
 
 private:
-    int target = -1;
-    static juce::Rectangle<float> whiteRect (int index);   // index 0..6
-    static juce::Rectangle<float> blackRect (int index);   // index 0..4
-    int keyAt (juce::Point<float>) const;
+    juce::Rectangle<float> rectFor (int pitchClass) const;
 };
 
 //==============================================================================
@@ -115,50 +118,65 @@ public:
 
     void paint (juce::Graphics&) override;
     void resized() override;
+    void mouseDown (const juce::MouseEvent&) override;
 
 private:
     void timerCallback() override;
 
     using SliderAtt = juce::AudioProcessorValueTreeState::SliderAttachment;
     using ComboAtt  = juce::AudioProcessorValueTreeState::ComboBoxAttachment;
-    using ButtonAtt = juce::AudioProcessorValueTreeState::ButtonAttachment;
 
-    struct Knob
-    {
-        HostMenuSlider slider;
-        juce::Label    value;
-        std::unique_ptr<SliderAtt> attachment;
-        std::function<juce::String (double)> format;
-    };
-
-    void setupKnob (Knob&, const juce::String& paramId, const juce::String& title,
-                    bool big, bool bipolar, std::function<juce::String (double)> format);
-    void updateValueLabels();
+    void styleKnob (HostMenuSlider&, juce::Colour arc, const juce::String& title);
+    void attachDefault (HostMenuSlider&, const juce::String& paramId);
     void showHostMenu (const juce::String& paramId, const juce::MouseEvent&);
 
-    // Notes / scales
+    // Notas y escalas
     bool noteOn (int pitchClass) const;
     void setNote (int pitchClass, bool on);
     bool notesMatch (int key, int scaleType) const;
     void applyScale();
     int  noteMask() const;
+    void resetNotes();
+    void showKeyScaleMenu();
+    juce::String keyScaleText() const;
+
+    // Retune Speed (knob de "fuerza", 0..40) <-> parametro "speed" del motor (100 = lento, 0 = instantaneo)
+    void strengthChanged();
+    void syncStrengthFromParam();
+
+    void toggleClassic();
 
     FreeTuneAudioProcessor& audioProcessor;
-    FreeTuneLookAndFeel lnf;
+    GemLookAndFeel lnf;
 
-    Knob speed, amount, flex, humanize, vibrato, shift, mix;
+    HostMenuSlider retuneKnob, humanizeKnob, flexKnob, detuneKnob;
+    ValuePill retunePill, humanizePill, flexPill;
+    StatusBar statusBar;
+    ReadoutDisplay readout;
+    NotePad notePad;
 
-    juce::ComboBox keyBox, scaleBox, voiceBox;
-    std::unique_ptr<ComboAtt> keyAtt, scaleAtt, voiceAtt;
+    std::unique_ptr<SliderAtt> humanizeAtt, flexAtt, detuneAtt;
 
-    LedToggle classicBtn { "Classic" }, formantBtn { "Formant" };
-    std::unique_ptr<ButtonAtt> classicAtt, formantAtt;
+    // Selectores ocultos: guardan Key y Scale en el proyecto y mantienen la logica original
+    juce::ComboBox keyBox, scaleBox;
+    std::unique_ptr<ComboAtt> keyAtt, scaleAtt;
 
-    TuningMeter meter;
-    PianoKeys   piano;
+    bool strengthDragging = false;
+    bool syncingStrength  = false;
+    bool classicOn        = false;
+    bool hqMode           = false;     // solo visual por ahora
+    int  lastNoteMask     = -1;
+    juce::String keyScaleLabel, detuneText;
 
-    bool applyingPreset = false;
-    int  lastNoteMask = -1;
+    // Zonas clickeables / de repintado
+    const juce::Rectangle<int> rangeRect     { 360, 24, 154, 44 };
+    const juce::Rectangle<int> keyScaleRect  { 526, 24, 154, 44 };
+    const juce::Rectangle<int> presetRect    { 696, 24, 320, 44 };
+    const juce::Rectangle<int> resetRect     { 624, 330, 28, 24 };
+    const juce::Rectangle<int> algoRect      { 712, 500, 284, 48 };
+    const juce::Rectangle<int> lowLatRect    { 522, 520, 88, 28 };
+    const juce::Rectangle<int> hqRect        { 610, 520, 40, 28 };
+    const juce::Rectangle<int> detuneTextRect { 44, 512, 80, 40 };
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (FreeTuneAudioProcessorEditor)
 };
