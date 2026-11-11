@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<JUCERPROJECT id="oxgoBQ" name="FreeTune" projectType="audioplug" useAppConfig="0"
+<JUCERPROJECT id="oxgoBQ" name="Autotune 2026" projectType="audioplug" useAppConfig="0"
               addUsingNamespaceToJuceHeader="0" jucerFormatVersion="1" pluginFormats="buildVST3"
               headerPath="C:\FreeTune\RubberBand\rubberband-4.0.0">
-  <MAINGROUP id="yOEYcN" name="FreeTune">
+  <MAINGROUP id="yOEYcN" name="Autotune 2026">
     <GROUP id="{AF1985E9-55B3-68F3-FD18-1FC29882C8DD}" name="Source">
       <FILE id="GWXmxv" name="PluginProcessor.cpp" compile="1" resource="0"
             file="Source/PluginProcessor.cpp"/>

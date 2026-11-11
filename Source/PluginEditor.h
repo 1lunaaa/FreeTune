@@ -1,7 +1,6 @@
 /*
   ==============================================================================
-    FreeTune - Editor con la interfaz "Gemini-Tune Pro"
-    Reemplaza al PluginEditor.h original. El motor (PluginProcessor) no se toca.
+    Autotune 2026 - Editor UI
   ==============================================================================
 */
 #pragma once
@@ -9,28 +8,37 @@
 #include "PluginProcessor.h"
 
 //==============================================================================
-// Paleta y tipografia (sacadas del diseno HTML)
-namespace gt
+namespace at26
 {
-    const juce::Colour teal   { 0xff00f2c3 };
-    const juce::Colour purple { 0xffa855f7 };
-    const juce::Colour yellow { 0xffeab308 };
-    const juce::Colour text   { 0xffe2e8f0 };   // slate-200
-    const juce::Colour text2  { 0xffcbd5e1 };   // slate-300
-    const juce::Colour muted  { 0xff94a3b8 };   // slate-400
-    const juce::Colour faint  { 0xff64748b };   // slate-500
-    const juce::Colour line   { 0xff1e293b };   // slate-800
+    const juce::Colour bgOuter   { 0xff0d0f10 };
+    const juce::Colour bgPanel   { 0xff141719 };
+    const juce::Colour bgRight   { 0xff131517 };
+    const juce::Colour bgDark    { 0xff0f1113 };
+    const juce::Colour knobTop   { 0xff43474c };
+    const juce::Colour knobBot   { 0xff323539 };
+    const juce::Colour knobRing  { 0xff25282c };
+    const juce::Colour line      { 0xff262a2e };
 
-    // Segoe UI y Consolas vienen con Windows; en otros sistemas cae a la fuente por defecto.
+    const juce::Colour teal      { 0xff18e0b8 };
+    const juce::Colour tealGlow  { 0xff0b2926 };
+    const juce::Colour purple    { 0xff8b5cf6 };
+    const juce::Colour lime      { 0xffa3e635 };
+    const juce::Colour yellow    { 0xffeab308 };
+
+    const juce::Colour text      { 0xfff1f5f9 };
+    const juce::Colour text2     { 0xffcbd5e1 };
+    const juce::Colour muted     { 0xff889098 };
+    const juce::Colour faint     { 0xff4e545c };
+
     juce::Font font (float size, bool bold = false, bool italic = false);
     juce::Font mono (float size, bool bold = false);
 }
 
 //==============================================================================
-class GemLookAndFeel : public juce::LookAndFeel_V4
+class AT2026LookAndFeel : public juce::LookAndFeel_V4
 {
 public:
-    GemLookAndFeel();
+    AT2026LookAndFeel();
 
     void drawRotarySlider (juce::Graphics&, int x, int y, int width, int height,
                            float sliderPos, float startAngle, float endAngle, juce::Slider&) override;
@@ -38,7 +46,6 @@ public:
 };
 
 //==============================================================================
-// Knob rotativo: el click derecho abre el menu del host (en FL: "Create automation clip")
 class HostMenuSlider : public juce::Slider
 {
 public:
@@ -52,7 +59,6 @@ private:
 };
 
 //==============================================================================
-// Pastilla con un puntito de color y un valor (35, 45, 30...)
 class ValuePill : public juce::Component
 {
 public:
@@ -66,7 +72,6 @@ private:
 };
 
 //==============================================================================
-// Linea de estado: "AutoKey Listen" con el punto que late + indicador de senal
 class StatusBar : public juce::Component
 {
 public:
@@ -80,7 +85,6 @@ private:
 };
 
 //==============================================================================
-// Nota grande + barra de cents con aguja
 class ReadoutDisplay : public juce::Component
 {
 public:
@@ -94,18 +98,19 @@ private:
 };
 
 //==============================================================================
-// Las 12 notas: fila de sostenidos (circulos) y fila de naturales (pastillas)
 class NotePad : public juce::Component
 {
 public:
-    std::function<bool (int)> isOn;       // pitch class (C = 0) -> esta activa?
-    std::function<void (int)> onToggle;   // se hizo click en una nota
+    std::function<bool (int)> isOn;
+    std::function<void (int)> onToggle;
 
+    void setActivePitchClass (int pc);
     void paint (juce::Graphics&) override;
     void mouseDown (const juce::MouseEvent&) override;
 
 private:
     juce::Rectangle<float> rectFor (int pitchClass) const;
+    int activePc = -1;
 };
 
 //==============================================================================
@@ -130,7 +135,6 @@ private:
     void attachDefault (HostMenuSlider&, const juce::String& paramId);
     void showHostMenu (const juce::String& paramId, const juce::MouseEvent&);
 
-    // Notas y escalas
     bool noteOn (int pitchClass) const;
     void setNote (int pitchClass, bool on);
     bool notesMatch (int key, int scaleType) const;
@@ -138,16 +142,21 @@ private:
     int  noteMask() const;
     void resetNotes();
     void showKeyScaleMenu();
+    void showVocalRangeMenu();
+    void showPresetMenu();
+    void loadPreset (int index);
+    bool isPresetDirty() const;
     juce::String keyScaleText() const;
+    juce::String vocalRangeText() const;
 
-    // Retune Speed (knob de "fuerza", 0..40) <-> parametro "speed" del motor (100 = lento, 0 = instantaneo)
     void strengthChanged();
     void syncStrengthFromParam();
 
     void toggleClassic();
+    void toggleBypass();
 
     FreeTuneAudioProcessor& audioProcessor;
-    GemLookAndFeel lnf;
+    AT2026LookAndFeel lnf;
 
     HostMenuSlider retuneKnob, humanizeKnob, flexKnob, detuneKnob;
     ValuePill retunePill, humanizePill, flexPill;
@@ -157,26 +166,30 @@ private:
 
     std::unique_ptr<SliderAtt> humanizeAtt, flexAtt, detuneAtt;
 
-    // Selectores ocultos: guardan Key y Scale en el proyecto y mantienen la logica original
     juce::ComboBox keyBox, scaleBox;
     std::unique_ptr<ComboAtt> keyAtt, scaleAtt;
 
     bool strengthDragging = false;
     bool syncingStrength  = false;
     bool classicOn        = false;
-    bool hqMode           = false;     // solo visual por ahora
+    bool hqMode           = false;
+    bool bypassed         = false;
     int  lastNoteMask     = -1;
-    juce::String keyScaleLabel, detuneText;
+    int  currentPreset    = 0; // 0 = Max AutoTune, 1 = Natural
+    bool lastPresetDirty  = false;
+    juce::String keyScaleLabel, rangeLabel, detuneText;
 
-    // Zonas clickeables / de repintado
-    const juce::Rectangle<int> rangeRect     { 360, 24, 154, 44 };
-    const juce::Rectangle<int> keyScaleRect  { 526, 24, 154, 44 };
-    const juce::Rectangle<int> presetRect    { 696, 24, 320, 44 };
-    const juce::Rectangle<int> resetRect     { 624, 330, 28, 24 };
-    const juce::Rectangle<int> algoRect      { 712, 500, 284, 48 };
-    const juce::Rectangle<int> lowLatRect    { 522, 520, 88, 28 };
-    const juce::Rectangle<int> hqRect        { 610, 520, 40, 28 };
-    const juce::Rectangle<int> detuneTextRect { 44, 512, 80, 40 };
+    const juce::Rectangle<int> rangeRect      { 216, 12, 224, 68 };
+    const juce::Rectangle<int> keyScaleRect   { 440, 12, 228, 68 };
+    const juce::Rectangle<int> presetRect     { 680, 12, 348, 68 };
+    const juce::Rectangle<int> presetPrevRect { 914, 28, 26, 36 };
+    const juce::Rectangle<int> presetNextRect { 940, 28, 26, 36 };
+    const juce::Rectangle<int> resetRect      { 616, 336, 28, 24 };
+    const juce::Rectangle<int> algoRect       { 700, 502, 308, 44 };
+    const juce::Rectangle<int> lowLatRect     { 360, 594, 108, 28 };
+    const juce::Rectangle<int> hqRect         { 474, 594, 48, 28 };
+    const juce::Rectangle<int> detuneTextRect { 36, 594, 86, 24 };
+    const juce::Rectangle<int> powerBtnRect   { 964, 588, 38, 38 };
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (FreeTuneAudioProcessorEditor)
 };
